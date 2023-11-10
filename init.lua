@@ -26,9 +26,6 @@ local function local_modules(mod, modifiers)
 
   mod.switcher = load_module("switcher") -- Raise on activation
   mod.switcher.init(modifiers)
-
-  mod.fs_watcher = load_module("fs_watcher") -- Act on filesystem activity
-  mod.fs_watcher.init()
 end
 
 local function spoon_wrappers(mod, modifiers)

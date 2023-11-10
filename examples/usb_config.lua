@@ -2,6 +2,7 @@
 -- luacheck: globals hs
 
 local usb_config = {
+  loglevel = "info",            -- the default, adjust for more or less detail
   devices = {
     --  Personal devices get merged with / override built-in ones from usb.lua
     ["Apple Keyboard"] = { fn = 'report' }, -- External keyboard

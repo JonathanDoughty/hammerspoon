@@ -55,7 +55,7 @@ local function actOnAppActivation(appName, appObject)
 
   local function unMinimize (w)
     if w:isMinimized() then
-      log.df("Unminimizing %s window for %s", (w:isStandard() and 'standard' or 'non-stnadard'),
+      log.df("Unminimizing %s window for %s", (w:isStandard() and 'standard' or 'non-standard'),
              w:application():name())
       w:unminimize()
     else
@@ -84,7 +84,7 @@ local function actOnAppActivation(appName, appObject)
   end
 
   local function terminateWindowless(candidates)
-    log.vf("checking for any apps in termination candidates %s", hs.inspect(m.defs.termination_candidates))
+    log.vf("checking for any apps in termination candidates %s", hs.inspect(m.config.termination_candidates))
     local apps = hs.application.runningApplications()
 
     hs.fnutils.each(apps,
@@ -109,7 +109,7 @@ local function actOnAppActivation(appName, appObject)
     hs.fnutils.each(windows, unMinimize)
   elseif m.lastObserved ~= m.currentApp then
     log.f("Not acting on activated never current %s", m.lastObserved:name())
-  elseif hs.fnutils.some(m.defs.special_cases, executeSpecialCaseAction) then
+  elseif hs.fnutils.some(m.config.special_cases, executeSpecialCaseAction) then
     log.vf("Special case for %s with %d windows, %d visible, %d minimized, %d standard",
           appObject:name(), #windows, visible, minimized, standard)
   elseif #windows == 0 then
@@ -126,7 +126,7 @@ local function actOnAppActivation(appName, appObject)
 
   -- After current actions complete
   hs.timer.doAfter(2, function ()
-                     terminateWindowless(m.defs.termination_candidates)
+                     terminateWindowless(m.config.termination_candidates)
   end)
 end
 
@@ -138,7 +138,7 @@ function m.applicationWatcher(appName, eventType, appObject)
 
   if appName and appName ~= "Hammerspoon" then
     m.lastObserved = appObject  -- check all but Hammerspoon
-    if not hs.fnutils.contains(m.defs.never_current, appName) then
+    if not hs.fnutils.contains(m.config.never_current, appName) then
       -- Keep track of 'current' app - modulo those that are never 'current' - to have an event
       m.currentApp = appObject
     else
@@ -195,17 +195,19 @@ local function moveAppWindow()
       local destinationScreen = nextScreen(initialScreen)
       local moved = 0
       for _, w in ipairs(windows) do
-        -- Move standard windows - not popups, modals, floating - that are on same screen as initial focused window
-        log.vf("Window %s (standard %s) on screen %s", w:title(), w:isStandard(), w:screen())
-        if w:screen() == initialScreen and w:isStandard() then
-          log.vf("Moving window %s on screen %s to %s", w:title(), w:screen(), destinationScreen)
+        -- Move visible windows - including popups, modals, floating - from same screen as
+        -- focused window. (Only standard windows misses those apps that annoyingly start as popups.)
+        log.vf("Window %s (visible %s) on screen %s", w:title(), w:isVisible(), w:screen())
+        if w:screen() == initialScreen and w:isVisible() then
+          log.df("Moving window %s with role %s on screen %s to %s", w:title(), w:role(), w:screen(), destinationScreen)
           w:moveToScreen(destinationScreen, true, true)
           moved = moved + 1
         end
       end
       log.f("Moved %d of %d %s windows to %s", moved, #windows, focusedApp:name(), destinationScreen)
     else
-      log.i("No destinationScreen screen to move to")
+      log.i("No destinationScreen to move to, centering")
+      focusedWindow:centerOnScreen(nil, true)
     end
   else
     log.i("No focused app")
@@ -213,9 +215,9 @@ local function moveAppWindow()
 end
 
 function m.init(modifiers)
-  m.defs = load_config()
-  if ( log.getLogLevel() ~= toLogLevel(m.defs.loglevel) ) then
-    log.setLogLevel(m.defs.loglevel)
+  m.config = load_config()
+  if ( log.getLogLevel() ~= toLogLevel(m.config.loglevel) ) then
+    log.setLogLevel(m.config.loglevel)
   end
   m.appWatcher = hs.application.watcher.new(m.applicationWatcher)
   m.appWatcher:start()
@@ -231,13 +233,13 @@ function m.init(modifiers)
   }
   wf.setLogLevel('warning') -- the default of info (3) is a bit too verbose
   m.windowFilter = wf.new(true, 'wf', 'info' )
-  if m.defs["subscribe"] then
+  if m.config["subscribe"] then
     -- Disabled when it seemed like subscriber handling was causing modal password mis-handling.
     -- That turned out not to be the case, so I made enabling subscribed events a config option.
     m.windowFilter:subscribe(subscribedEvents, windowSubscriber)
   end
   -- hotkey based screen mover
-  hs.hotkey.bind(modifiers, m.defs["move"], describe("Move app"), moveAppWindow)
+  hs.hotkey.bind(modifiers, m.config["move"], describe("Move app"), moveAppWindow)
 
 end
 

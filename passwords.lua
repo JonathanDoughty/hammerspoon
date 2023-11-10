@@ -1,5 +1,5 @@
 -- Key bindings for Keychain password access
--- luacheck: globals hs load_config
+-- luacheck: globals hs load_config notify
 
 local m = {}
 
@@ -22,17 +22,16 @@ local exe = '/usr/bin/security' -- used to access to Keychain content
 
 require "utils"
 
-m.bindings = {}
 m.log = log
 
-local function secureInputNotEnabled()
+function m.secureInputNotEnabled()
   local enabled = hs.eventtap.isSecureInputEnabled() -- 11.3 seems to have broken
-  log.df("secure input enabled %s", enabled)
+  log.vf("secure input enabled %s", enabled)
   return not enabled
 end
 
 -- Pull the type (generic/internet) password associated with service from Keychain
-local function extractPassword(pwType, service)
+function m.extractPassword(pwType, service)
   local keychainCmd = "find-" .. pwType .. "-password"
   local cmd = string.format("%s %s -s '%s' -a %s -w", exe, keychainCmd, service, os.getenv("USER"))
   local p, _ = hs.execute(cmd)
@@ -41,6 +40,7 @@ local function extractPassword(pwType, service)
     p = string.gsub(p, "\n", "") -- trim newline
   else
     log.wf("%s returned nil or 0 length string", cmd)
+    notify("Unable to extract password from Keychain using " .. cmd)
   end
   return p
 end
@@ -66,7 +66,7 @@ local keyboard_chars = {
 }
 
 
-local function keyStrokeCharacter(c)
+function m.keyStrokeCharacter(c)
   local delay = 200 -- key down/up delay in microseconds
   if string.match(c, "[%u]") then  -- uppercase
     hs.eventtap.keyStroke({"shift"}, c, delay)
@@ -97,15 +97,15 @@ function m.keyStrokeCharacters(chars)
                    hs.eventtap.keyStroke(nil, c, delay)
                  else
                    local code = hs.keycodes.map[c]
-                   log.vf("Char %s not stroked",  code)
+                   log.ef("Char %s NOT stroked",  code)
                  end
     end)
 end
 
-local function keystrokeFromPasteboardContents()
+function m.keystrokeFromPasteboardContents()
   log.vf("Keystroke pasteboard contents from %s", hs.inspect(m.lastPassword))
   if m.lastPassword then
-    local passPhrase = extractPassword(m.lastPassword.pwType, m.lastPassword.service)
+    local passPhrase = m.extractPassword(m.lastPassword.pwType, m.lastPassword.service)
     if passPhrase then
       hs.pasteboard.setContents(passPhrase)
       -- Clear this from pasteboard after 10 secs
@@ -118,31 +118,58 @@ local function keystrokeFromPasteboardContents()
   end
   local content = hs.pasteboard.getContents()
   if content then
-    content:gsub(".", keyStrokeCharacter)
+    content:gsub(".", m.keyStrokeCharacter)
   else
     log.ef("No content in pasteboard:%s", hs.pasteboard.getContents())
   end
 end
 
-local function getPasswordAndKeystroke(pwDef)
-  local passPhrase = extractPassword(pwDef.pwType, pwDef.service)
-  if secureInputNotEnabled() then
+function m.getPasswordAndKeystroke(pwDef)
+  local passPhrase = m.extractPassword(pwDef.pwType, pwDef.service)
+  if m.secureInputNotEnabled() then
     hs.eventtap.keyStrokes(passPhrase)
   else
     if m.config.timeout and m.config.timeout > 0 then
       log.df("Secure input enabled, keyStroking from clipboard")
       m.lastPassword = pwDef -- save for keystrokeFromPasteboardContents use
       hs.timer.doAfter(m.config.timeout, function() m.lastPassword = nil end)
-      keystrokeFromPasteboardContents()
+      m.keystrokeFromPasteboardContents()
     else
       log.f("timeout %d - secure input field key stroking disabled", m.config.timeout)
     end
   end
 end
 
-function m.bindModal(modifiers, modal_keys)
+function m.strokingFunctions(pwd_mapping)
+  -- Set up and return a table of functions to stroke password characters
+
+  local function strokePassword()
+    if m.modal then
+      m.modal:exit()
+    end
+    log.vf("Stroke password for %s", pwd_mapping.desc)
+    m.getPasswordAndKeystroke(pwd_mapping)
+  end
+
+  local function strokeFromPasteboard()
+    if m.modal then
+      m.modal:exit()
+    end
+    log.vf("Stroke from pasteboard for %s", pwd_mapping.desc)
+    m.keystrokeFromPasteboardContents()
+  end
+
+  local stroke_funcs = {
+    ["internet"] = strokePassword,
+    ["generic"] = strokePassword,
+    ["clipboard"] = strokeFromPasteboard,
+  }
+  return stroke_funcs
+end
+
+function m.modalKeyBinder(modifiers, modal_keys)
   local modal = hs.hotkey.modal.new(modifiers, modal_keys, "Password mode")
-  m.bindings['modal'] = modal
+  m.modal = modal
   modal:bind('', 'escape', function() modal:exit() end)
   if log.level >= 4 then -- debug or verbose
     -- luacheck: push no unused args
@@ -155,55 +182,37 @@ function m.bindModal(modifiers, modal_keys)
     -- luacheck: pop
   end
 
+  -- Return a function that will be called for each key to be mapped for a modal
   local binder = function (pwd_mapping)
-    log.df("Binding password mode %s of type %s for %s", pwd_mapping.bindTo,
-           pwd_mapping.pwType, pwd_mapping.desc)
-    if pwd_mapping.pwType == "internet" or pwd_mapping.pwType == "generic" then
-      modal:bind('', pwd_mapping.bindTo,
-                 function()
-                   modal:exit()
-                   log.vf("Stroke password for %s", pwd_mapping.desc)
-                   getPasswordAndKeystroke(pwd_mapping)
-                 end
-      )
-    elseif pwd_mapping.pwType == "clipboard" then
-      modal:bind('', pwd_mapping.bindTo,
-                 function()
-                   modal:exit()
-                   log.vf("Stroke from pasteboard for %s", pwd_mapping.desc)
-                   keystrokeFromPasteboardContents()
-                 end
-      )
+    log.f("Binding password mode key %s of type %s for %s", pwd_mapping.bindTo,
+          pwd_mapping.pwType, pwd_mapping.desc)
+    local funcs = m.strokingFunctions(pwd_mapping)
+    local func = funcs[pwd_mapping.pwType]
+    if (func) then
+      modal:bind('', pwd_mapping.bindTo, func)
+    else
+      log.ef("Unrecognized password stroking type %s", pwd_mapping.pwType)
     end
   end
   return binder
 end
 
-function m.bindKey(modifiers)
+function m.modifierKeyBinder(modifiers)
 
+  -- Return a function that will be called for each key to be direct mapped
   local binder = function (pwd_mapping)
-    log.df("Binding password key %s%s of type %s",
-           table.concat(modifiers),string.upper(pwd_mapping.bindTo),
-           pwd_mapping.pwType)
+    log.f("Binding password key %s%s of type %s for %s",
+           table.concat(modifiers), string.upper(pwd_mapping.bindTo),
+           pwd_mapping.pwType, pwd_mapping.desc)
     local binding
-    local msg
-    if pwd_mapping.pwType == "internet" or pwd_mapping.pwType == "generic" then
-      msg = "Stroke password for " .. pwd_mapping.desc
-      log.v(msg)
-      binding = hs.hotkey.bind(modifiers, pwd_mapping.bindTo,
-                               function()
-                                 getPasswordAndKeystroke(pwd_mapping)
-                               end
-      )
-    elseif pwd_mapping.pwType == "clipboard" then
-      msg = "stroke clipboard contents"
-      log.v(msg)
-      binding = hs.hotkey.bind(modifiers, pwd_mapping.bindTo,
-                               keystrokeFromPasteboardContents)
+    local funcs = m.strokingFunctions(pwd_mapping)
+    local func = funcs[pwd_mapping.pwType]
+    if (func) then
+      binding = hs.hotkey.bind(modifiers, pwd_mapping.bindTo, func)
+      pwd_mapping.bindTo = binding -- replace key with actual binding
     else
-      log.wf("Unrecognized pwType: %s", pwd_mapping.pwType)
+      log.ef("Unrecognized password stroking type %s", pwd_mapping.pwType)
     end
-    pwd_mapping.bindTo = binding
   end
   return binder
 end
@@ -216,17 +225,17 @@ function m.init(modifiers)
   end
 
   local modal_keys = config['modal'] or nil
-  local binder
-  -- Set up functions to bind either modal or direct modifier/key mapping
+  local keyBinder
+  -- Select function to bind either modal/key or modifier/key mapping
   if modal_keys then
-    binder = m.bindModal(modifiers, modal_keys)
+    keyBinder = m.modalKeyBinder(modifiers, modal_keys)
   else -- not modal, bind to global keyboard shortcut
-    binder = m.bindKey(modifiers)
+    keyBinder = m.modifierKeyBinder(modifiers)
   end
 
   -- bind each defined password definition to its key
   if config['passwords'] then
-    hs.fnutils.each(config['passwords'], binder)
+    hs.fnutils.each(config['passwords'], keyBinder)
   end
 
 end

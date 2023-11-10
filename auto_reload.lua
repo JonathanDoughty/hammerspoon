@@ -8,8 +8,9 @@ m.log = log
 require("utils") -- notify
 
 -- ToDo - see if http://www.hammerspoon.org/Spoons/ReloadConfiguration.html is a replacement
--- or
--- ToDo - integrate this into fs_watcher
+
+-- ToDo: YakShave: invoke luacheck and abort reload if there are issues
+-- ToDo: yakShave: prior to reload: get history, find previous marker, delete earlier history, set history
 
 function m.reloadConfig(files)
   local fileChanged = nil
@@ -34,8 +35,8 @@ function m.reloadConfig(files)
     m.timer = hs.timer.doAfter(waitFor,
                                function()
                                  local marker = string.rep("*", 40)
-                                 marker = string.format("\n\n%s Config Reloaded %s\n", marker, marker)
-                                 hs.console.clearConsole()
+                                 marker = string.format("\n\n%s Config Reloaded for %s %s\n",
+                                                        marker, fileChanged, marker)
                                  hs.console.printStyledtext(marker)
                                  hs.reload()
                                end
@@ -45,7 +46,7 @@ end
 
 function m.init()
   m.myWatcher = hs.pathwatcher.new(hs.configdir, m.reloadConfig):start()
-  log.f("Watching for changes in Hammerspoon config files in %s", hs.configdir)
+  hs.console.printStyledtext(string.format("\nWatching for changes in config files in %s\n\n", hs.configdir))
 end
 
 return m

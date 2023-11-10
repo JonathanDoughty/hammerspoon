@@ -1,18 +1,24 @@
 -- Configuration for switcher.lua preferences
+-- luacheck: globals hs
 
 local switcher_config = {
-  loglevel = "debug",
+  loglevel = "info",
   move = "m",        -- key to bind with hyper to application screen moves
   never_current = {  -- never make these 'current'
     "Hammerspoon",   -- else debugging is nextto impossible
-    "SecurityAgent", -- e.g., gains focus when iTerm asks Finder to access files that need identity check
-    "Dock",          -- has no windows to make current
+    "SecurityAgent", -- UI for Security Service, requests authentication for privileges
     "ScreenSaverEngine", -- occurs on idle/sleep
-    "CoreServicesUIAgent",
+    "Screen Saver",
     "UserNotificationCenter",
+    "bzmenu" -- Backblaze
+    -- augmented below with Hammerspoon's own list
   },
-  termination_candidates = {  -- Apps that hang around pointlessly when all windows are closed
+  termination_candidates = {  -- Apps that hang around pointlessly after all windows are closed
     "Archive Utility",
+    -- Other candidates I find annoying
+    -- "Numbers",
+    -- "Preview",
+    -- "TextEdit",
   },
   special_cases = {
     { app = "Finder", action = 'tell application "Finder" to reopen' }, -- will always have nonStandard, Desktop window
@@ -22,5 +28,11 @@ local switcher_config = {
       app = "Microsoft Teams", action = 'tell application "Microsoft Teams" to reopen' },
   },
 }
+
+-- Augment the list of applications that are never 'current' for switcher with
+-- those whose windows Hammerspoon's hs.window.filter ignores.
+for k, _ in pairs(hs.window.filter.ignoreAlways) do
+  table.insert(switcher_config.never_current, k)
+end
 
 return switcher_config

@@ -1,5 +1,6 @@
 -- Some common functions
--- luacheck: globals hs load_module load_config script_path script_name describe notify starts_with toLogLevel
+-- luacheck: globals hs load_module load_config script_path script_name find_script describe notify
+-- luacheck: globals starts_with toLogLevel
 
 local log = hs.logger.new("utils", "info")
 
@@ -19,6 +20,22 @@ function script_name()
   local name = str:match(".*[/\\](.*)") or "??"
   log.df("name: %s", name)
   return name
+end
+
+function find_script(target, base_dir)
+  local script_path = hs.fs.pathToAbsolute(base_dir)
+  if script_path then
+    -- Can't use pathToAbsolute because it resolves sym links
+    -- and I've forgotten why it was necessary to avoid that
+    local path = script_path .. '/' .. target
+    if hs.fs.displayName(path) then
+      return path
+    else
+      return nil
+    end
+  else
+     log.wf("Can't resolve %s from %s", target, base_dir)
+  end
 end
 
 -- Loading local functionality and configuration

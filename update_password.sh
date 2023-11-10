@@ -3,7 +3,8 @@
 
 shopt -s extglob
 
-GENERIC_SERVICES='pwmgr|ssh\ passphrase|bitwarden|1password|lastpass'
+# Example secuurity (1) service names:
+GENERIC_SERVICES='pwmgr|ssh\ passphrase|bitwarden|1password'
 
 case "${1:-no service}" in
     (@($GENERIC_SERVICES))

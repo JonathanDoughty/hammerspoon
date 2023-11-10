@@ -43,29 +43,28 @@ function m.modalMgrInit(modifiers, keys)
 end
 
 function m.killSwitch()
+  -- When I screw up this gives me a binding to save the console log and restart hammerspoon
   local logPath = hs.configdir .. '/console.log'
   log.df("Saving console text to %s", logPath)
   local consoleText = hs.console.getConsole()
-  local logFile = assert(io.open(logPath, 'a')) -- append to existing (so an accidental repeat does not lose)
+   -- append to existing (so an accidental repeat does not lose)
+  local logFile = assert(io.open(logPath, 'a'))
   logFile:write(consoleText)
   io.close(logFile)
   hs.relaunch()
 end
 
-function m.init(modifiers, keys)
-
-  hs.loadSpoon("ModalMgr")
-  m.modalMgrInit(modifiers, keys)
-
-  -- These are not yet using modalMgr
+local function miscBindings(modifiers, keys)
 
   -- Instead of https://www.hammerspoon.org/Spoons/HSKeyBindings.html
   hs.hotkey.showHotkeys(modifiers, keys["showbindings"])
 
   -- Toggle the Hammerspoon console
-  hs.hotkey.bind(modifiers, keys["hammerspoon"], describe("Hammerspoon console"), function()
+  hs.hotkey.bind(modifiers, keys["hammerspoon"], describe("Hammerspoon console"),
+                 function()
                    hs.openConsole()
-  end)
+                 end
+  )
 
   -- Kill switch / fail safe / Relaunch  - normally on hyper-r
   hs.hotkey.bind(modifiers, keys["kill"], describe("Relaunch Hammerspoon"), m.killSwitch)
@@ -74,10 +73,22 @@ function m.init(modifiers, keys)
   hs.hotkey.bind(modifiers, keys["sleep"], describe("Sleep/Lock"), m.sleep)
 
   -- Somewhat like Windows Alt-E, make a new Finder Window
-  hs.hotkey.bind({"cmd"}, "E", describe("New Finder Window"), function()
+  hs.hotkey.bind({"cmd"}, "E", describe("New Finder Window"),
+    function()
       hs.osascript.applescript(
         'tell application "Finder" to make new Finder window to home')
-  end)
+    end
+  )
+
+end
+
+function m.init(modifiers, keys)
+
+  hs.loadSpoon("ModalMgr")
+  m.modalMgrInit(modifiers, keys)
+
+  -- These are not yet using modalMgr
+  miscBindings(modifiers, keys)
 end
 
 return m
