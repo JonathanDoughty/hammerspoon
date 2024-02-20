@@ -22,8 +22,10 @@ m.devices = { -- built-in devices
     ["Bluetooth USB Host Controller"] = { fn = 'ignore' },
     ["FaceTime HD Camera (Built-in)"] = { },
     ["Internal Memory Card Reader"] = { fn = 'ignore' },
+    ["TPS DMC Family"] = { fn = 'ignore' },
     ["Touch Bar Backlight"] = { fn = 'ignore' },
     ["Touch Bar Display"] = { fn = 'ignore' },
+    ["USB Audio"] = { },
     ["USB audio CODEC"] = { },
 }
 
@@ -128,7 +130,7 @@ local function reportDevices(device_table)
           end
         end
       }
-      log.df("Created function to report %s", dev)
+      log.df("Created function to report '%s'", dev)
     else
       log.vf("Skipping redefinition for %s (%s != %s)", dev, t.fn, reportDevices)
     end
@@ -186,13 +188,12 @@ local function watchVolumes()
   local function checkVolume(item, eventType, info)
     log.vf("Checking %s", hs.inspect(item))
     if eventType == hs.fs.volume.didMount then
-      log.df("%s mounted, checking for watch path", hs.inspect(info))
+      log.df("%s mounted, checking for watch path", info['path'])
       if (item['volume'] == info['path']) and item['mount'] then
         if info['mount'] and info['path'] then
           log.df("calling %s for %s", info['mount'], info['path'])
-          mountEncrypted(true)
           if fnc_mapping[info['mount']] then
-            log.df("Calling %s function %", info['mount'],
+            log.df("Call %s function %s", info['mount'],
                    hs.inspect(fnc_mapping[info['mount']]))
           end
         end
