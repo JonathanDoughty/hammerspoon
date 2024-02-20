@@ -9,6 +9,7 @@ local switcher_config = {
     "SecurityAgent", -- UI for Security Service, requests authentication for privileges
     "ScreenSaverEngine", -- occurs on idle/sleep
     "Screen Saver",
+    "System Information", -- making it current will auto-enable the More Info window
     "UserNotificationCenter",
     "bzmenu" -- Backblaze
     -- augmented below with Hammerspoon's own list
