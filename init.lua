@@ -74,6 +74,7 @@ end
 
 local function hammerspoon_tweaks(mod)
   load_module("hs.ipc") -- enable Hammerspoon access from the command line
+  hs.loadSpoon('EmmyLua') -- Set up VSCodium Hammerspoon extension integration
 
   if mod.log.level < 4 then
     hs.console.clearConsole()
