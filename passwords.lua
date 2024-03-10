@@ -108,7 +108,7 @@ function m.keystrokeFromPasteboardContents()
     local passPhrase = m.extractPassword(m.lastPassword.pwType, m.lastPassword.service)
     if passPhrase then
       hs.pasteboard.setContents(passPhrase)
-      -- Clear this from pasteboard after 10 secs
+      -- Clear this from pasteboard after the configured timeout, default being 10 secs
       hs.timer.doAfter(m.config.timeout, function()
                          hs.pasteboard.clearContents()
                          log.df("Cleared passPhrase from pasteboard")

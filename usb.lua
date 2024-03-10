@@ -11,6 +11,8 @@ m.author = "Jonathan Doughty <jwd630@gmail.com>"
 m.homepage = "https://github.com/JonathanDoughty/hammerspoon"
 m.license = "MIT - https://opensource.org/licenses/MIT"
 
+local options = { ["newline"] = " " } -- used for hs.inspect to flatten tables
+
 local log = hs.logger.new("usb", "info")
 m.log = log
 
@@ -45,7 +47,7 @@ local function mountEncrypted(mounted)
   local function mountContainer()
     log.df("executing %s", m.config.mount_container)
     hs.execute(m.config.mount_container, false)
-    log.vf("m.config %s", hs.inspect(m.config))
+    log.vf("m.config %s", hs.inspect(m.config, options))
     local volumes = hs.fs.volume.allVolumes()
     m.container = volumes[m.config.container]
   end
@@ -56,7 +58,8 @@ local function mountEncrypted(mounted)
       log.f("%s mounted", m.config.container)
     else
       notify("Encrypted container NOT mounted")
-      log.ef("%s NOT mounted; volumes:%s", m.config.container, hs.inspect(hs.fs.volume.allVolumes()))
+      log.ef("%s NOT mounted; volumes:%s", m.config.container,
+             hs.inspect(hs.fs.volume.allVolumes(), options))
     end
 
   end
@@ -146,10 +149,10 @@ local function ejectDisks(mounted)
                       local path = '/Volumes/' .. vol['NSURLVolumeLocalizedNameKey']
                       if not (hs.fnutils.contains(m.config.eject_menu.config.never_eject, path) or
                               vol["NSURLVolumeIsInternalKey"]) then
-                        log.df("dismount vol:%s", hs.inspect(vol))
+                        log.df("dismount vol:%s", hs.inspect(vol, options))
                         local result, err = hs.fs.volume.eject(path)
                         if result then
-                          log.df("Save info about %s for remount", hs.inspect(vol))
+                          log.df("Save info about %s for remount", hs.inspect(vol, options))
                         else
                           log.ef("Error ejecting %s:%s", path, err)
                         end
@@ -157,7 +160,8 @@ local function ejectDisks(mounted)
     end)
     hs.notify.show("USB", "", "Ejected ")
   else
-    log.vf("ejectDisks called via key binding or device registration; mounted:%s", hs.inspect(mounted))
+    log.vf("ejectDisks called via key binding or device registration; mounted:%s",
+           hs.inspect(mounted), options)
   end
 end
 
@@ -186,7 +190,7 @@ local volumeActions = {
 local function watchVolumes()
 
   local function checkVolume(item, eventType, info)
-    log.vf("Checking %s", hs.inspect(item))
+    log.vf("Checking %s", hs.inspect(item, options))
     if eventType == hs.fs.volume.didMount then
       log.df("%s mounted, checking for watch path", info['path'])
       if (item['volume'] == info['path']) and item['mount'] then
@@ -194,7 +198,7 @@ local function watchVolumes()
           log.df("calling %s for %s", info['mount'], info['path'])
           if fnc_mapping[info['mount']] then
             log.df("Call %s function %s", info['mount'],
-                   hs.inspect(fnc_mapping[info['mount']]))
+                   hs.inspect(fnc_mapping[info['mount']], options))
           end
         end
       else
@@ -202,14 +206,14 @@ local function watchVolumes()
                item['mount'])
       end
     elseif eventType == hs.fs.volume.willUnmount then
-      log.df("%s unmounted, checking for watch path", hs.inspect(info))
+      log.df("%s unmounted, checking for watch path", info.path)
       if (item['volume'] == info['path']) and item['unmount'] then
         if info['mount'] and info['path'] then
           log.df("calling %s for %s", info['unmount'], info['path'])
           dismountEncrypted()
           if fnc_mapping[info['unmount']] then
             log.df("Calling %s function %", info['unmount'],
-                   hs.inspect(fnc_mapping[info['mount']]))
+                   hs.inspect(fnc_mapping[info['mount']], options))
           else
             log.vf("('%s' != '%s') or %s", item['volume'], info['path'],
                    item['unmount'])
@@ -227,14 +231,14 @@ local function watchVolumes()
                              end
                              return false
                           end) then
-      log.df("Received %s for %s, checking", volumeActions[eventType], hs.inspect(info))
+      log.df("Received %s for %s, checking", volumeActions[eventType], info["path"])
       hs.fnutils.each(m.watch,
                       function(item)
                         checkVolume(item, eventType, info)
                       end
       )
     else
-      log.vf("Ignoring %s for %s", volumeActions[eventType], hs.inspect(info))
+      log.vf("Ignoring %s for %s", volumeActions[eventType], hs.inspect(info, options))
     end
   end
 
@@ -301,7 +305,7 @@ local function configureSpoons(modifiers)
 
   -- http://www.hammerspoon.org/Spoons/EjectMenu.html
   m.config.eject_menu.hotkeys.ejectAll = { modifiers, m.config.keys.ejectall }
-  log.vf("config.eject_menu:%s", hs.inspect.inspect(m.config.eject_menu))
+  log.vf("config.eject_menu:%s", hs.inspect.inspect(m.config.eject_menu, options))
   Install:andUse("EjectMenu", m.config.eject_menu)
 end
 
