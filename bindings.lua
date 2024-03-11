@@ -1,5 +1,5 @@
 -- Key binding display as well as key binding definitions I could not find a better place for yet
--- luacheck: globals hs spoon describe
+-- luacheck: globals hs spoon describe script_path
 
 local m = {}
 local log = hs.logger.new('bindings','debug')
@@ -84,8 +84,14 @@ end
 
 function m.init(modifiers, keys)
 
-  hs.loadSpoon("ModalMgr")
-  m.modalMgrInit(modifiers, keys)
+  if hs.loadSpoon("ModalMgr") then
+    m.modalMgrInit(modifiers, keys)
+  else
+    -- YakShave: implement the spoon auto install
+    -- Personally I don't condone that.
+    log.ef("\nYou'll need to install %s for %s to work\n",
+           "https://www.hammerspoon.org/Spoons/ModalMgr.html", script_path())
+  end
 
   -- These are not yet using modalMgr
   miscBindings(modifiers, keys)

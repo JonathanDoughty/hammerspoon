@@ -9,6 +9,8 @@ local log = hs.logger.new("init")
 cfg = load_config()
 
 local function local_modules(mod, modifiers)
+  -- some modules that I've yet to turn into spoons
+
   mod.bindings = load_module("bindings") -- ModalMgr set up and miscellaneous key bindings
   mod.bindings.init(modifiers, cfg.script_config['bindings'])
 
@@ -24,7 +26,7 @@ local function local_modules(mod, modifiers)
   mod.wifi = load_module("wifi") -- Watch for Wifi changes, toggle network location
   mod.wifi.init(modifiers)
 
-  mod.switcher = load_module("switcher") -- Raise on activation
+  mod.switcher = load_module("switcher") -- Raise on activation and other macOS UI tweaks
   mod.switcher.init(modifiers)
 end
 
@@ -73,18 +75,25 @@ local function watch_config(mod)
 end
 
 local function hammerspoon_tweaks(mod)
+  -- Aspects related to overall Hammerspoon operation
+
   load_module("hs.ipc") -- enable Hammerspoon access from the command line
-  hs.loadSpoon('EmmyLua') -- Set up VSCodium Hammerspoon extension integration
+
+  if not hs.loadSpoon("EmmyLua") then -- Set up VSCodium Hammerspoon extension integration
+    log.ef("You'll need to install %s for VSCodium/VS Code extension integration",
+           "https://www.hammerspoon.org/Spoons/EmmyLua.html")
+  end
 
   if mod.log.level < 4 then
     hs.console.clearConsole()
   else
-    -- debug or greater leave console as is, except add convenience aliases
+    -- debug or greater leave console as is, except add convenience aliase
     cls = hs.console.setConsole
   end
 end
 
 local function init()
+  -- Driver for the remainder of configuration
   log.i("Started")
   mod = {}
   mod.log = log
@@ -93,7 +102,7 @@ local function init()
 
   load_module("utils")
 
-  ins = hs.inspect -- convenience function
+  ins = hs.inspect -- console convenience function
 
   local modifiers = cfg.hyper or "alt"
 

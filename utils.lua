@@ -7,7 +7,7 @@ local log = hs.logger.new("utils", "info")
 local stack_level = 3 -- we want the info of the caller's source file
 
 -- Deal with script metadata
-function script_path()
+local function script_directory()
   -- https://stackoverflow.com/a/23535333/1124740
   local str = debug.getinfo(stack_level, "S").source:sub(2)
   local path = str:match("(.*[/\\])") or "./"
@@ -22,12 +22,18 @@ function script_name()
   return name
 end
 
+function script_path()
+  local path = script_directory() .. script_name()
+  return path
+end
+
+
 function find_script(target, base_dir)
-  local script_path = hs.fs.pathToAbsolute(base_dir)
-  if script_path then
+  local scripts_path = hs.fs.pathToAbsolute(base_dir)
+  if scripts_path then
     -- Can't use pathToAbsolute because it resolves sym links
     -- and I've forgotten why it was necessary to avoid that
-    local path = script_path .. '/' .. target
+    local path = scripts_path .. '/' .. target
     if hs.fs.displayName(path) then
       return path
     else
@@ -41,8 +47,8 @@ end
 -- Loading local functionality and configuration
 
 local config_paths = {
-  script_path() .. 'configs/',  -- where personalized versions are looked for first
-  script_path() .. 'examples/', -- public, generic examples
+  script_directory() .. 'configs/',  -- where personalized versions are looked for first
+  script_directory() .. 'examples/', -- public, generic examples
 }
 
 function load_config()
@@ -66,7 +72,7 @@ function load_config()
       return handle
     end
   else
-    log.ef("Unable to load config file for %s", name)
+    log.ef("Unable to load config file for %s from %s", name, directory)
     return nil
   end
 end

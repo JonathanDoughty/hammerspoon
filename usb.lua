@@ -1,5 +1,5 @@
 -- Watch / act on USB events and USB related devices
--- luacheck: globals hs notify spoon load_config describe devices toLogLevel
+-- luacheck: globals hs notify spoon load_config describe devices script_path toLogLevel
 
 require("utils")
 
@@ -290,23 +290,27 @@ end
 
 local function configureSpoons(modifiers)
     -- related spoon initialization
-  hs.loadSpoon("SpoonInstall")
-  local  Install=spoon.SpoonInstall
+  if hs.loadSpoon("SpoonInstall") then
+    local  Install=spoon.SpoonInstall
 
-  -- http://www.hammerspoon.org/Spoons/USBDeviceActions.html
-  -- spoon at https://github.com/Hammerspoon/Spoons/blob/master/Spoons/USBDeviceActions.spoon.zip
-  Install:andUse("USBDeviceActions", {
-                   config = {
-                     devices = m.devices
-                   },
-                   start = true,
-                   disable = false,
-  })
+    -- http://www.hammerspoon.org/Spoons/USBDeviceActions.html
+    -- spoon at https://github.com/Hammerspoon/Spoons/blob/master/Spoons/USBDeviceActions.spoon.zip
+    Install:andUse("USBDeviceActions", {
+                     config = {
+                       devices = m.devices
+                     },
+                     start = true,
+                     disable = false,
+    })
 
-  -- http://www.hammerspoon.org/Spoons/EjectMenu.html
-  m.config.eject_menu.hotkeys.ejectAll = { modifiers, m.config.keys.ejectall }
-  log.vf("config.eject_menu:%s", hs.inspect.inspect(m.config.eject_menu, options))
-  Install:andUse("EjectMenu", m.config.eject_menu)
+    -- http://www.hammerspoon.org/Spoons/EjectMenu.html
+    m.config.eject_menu.hotkeys.ejectAll = { modifiers, m.config.keys.ejectall }
+    log.vf("config.eject_menu:%s", hs.inspect.inspect(m.config.eject_menu, options))
+    Install:andUse("EjectMenu", m.config.eject_menu)
+  else
+    log.ef("You'll need to install %s for %s to work\n",
+           "https://www.hammerspoon.org/Spoons/SpoonInstall.html", script_path())
+  end
 end
 
 function m.init(modifiers)

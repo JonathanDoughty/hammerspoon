@@ -1,5 +1,5 @@
 -- WebViews - set up for some standard web page views
--- luacheck: globals hs load_config script_name script_path describe
+-- luacheck: globals hs load_config describe
 
 require("utils")
 
