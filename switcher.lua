@@ -162,10 +162,10 @@ function m.applicationWatcher(appName, eventType, appObject)
 end
 
 local function windowSubscriber(window, appName, event)
-  -- Records the last event associated with an app, e.g, hidden, windowNotVisible when hidden or minimized.
-  -- Not currently used otherwise.
-  log.df("subscriber: %s window %s event %s", appName, window:title(), event)
-  m.appState[appName] = event
+  -- Records the last event associated with an app, e.g, hidden, windowNotVisible when hidden
+  -- or minimized. Not currently used otherwise.
+   log.df("subscriber: %s window %s event %s", appName, window:title(), event)
+   m.appState[appName] = event
 end
 
 local function nextScreen(screen)

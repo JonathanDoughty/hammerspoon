@@ -11,6 +11,7 @@ local switcher_config = {
     "Screen Saver",
     "System Information", -- making it current will auto-enable the More Info window
     "UserNotificationCenter",
+    "ZoomAutoUpdater",    -- Zoom
     "bzmenu" -- Backblaze
     -- augmented below with Hammerspoon's own list
   },
