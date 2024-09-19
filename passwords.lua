@@ -5,7 +5,7 @@ local m = {}
 
 -- WIP: Spoon (someday) metadata
 m.name = "Passwords"
-m.version = "0.7"
+m.version = "0.8"
 m.author = "Jonathan Doughty <jwd630@gmail.com>"
 m.homepage = "https://github.com/JonathanDoughty/hammerspoon"
 m.license = "MIT - https://opensource.org/licenses/MIT"
@@ -36,7 +36,7 @@ function m.extractPassword(pwType, service)
   local cmd = string.format("%s %s -s '%s' -a %s -w", exe, keychainCmd, service, os.getenv("USER"))
   local p, _ = hs.execute(cmd)
   if string.len(p) > 0 then
-    log.df("extracted with `%s`", cmd)
+    log.vf("extracted with `%s`", cmd)
     p = string.gsub(p, "\n", "") -- trim newline
   else
     log.wf("%s returned nil or 0 length string", cmd)
@@ -107,20 +107,21 @@ function m.keystrokeFromPasteboardContents()
   if m.lastPassword then
     local passPhrase = m.extractPassword(m.lastPassword.pwType, m.lastPassword.service)
     if passPhrase then
-      hs.pasteboard.setContents(passPhrase)
+      hs.pasteboard.setContents(passPhrase, m.pasteboard)
       -- Clear this from pasteboard after the configured timeout, default being 10 secs
+      -- Shoud this instead be using hs.pasteboard.callbackWhenChanged()?
       hs.timer.doAfter(m.config.timeout, function()
-                         hs.pasteboard.clearContents()
-                         log.df("Cleared passPhrase from pasteboard")
+                         hs.pasteboard.clearContents(m.pasteboard)
+                         log.df("Cleared passPhrase from pasteboard %s", m.pasteboard)
       end)
     end
     -- else lastPassword has expired, fall through to stroking raw pasteboard contents
   end
-  local content = hs.pasteboard.getContents()
+  local content = hs.pasteboard.getContents(m.pasteboard)
   if content then
     content:gsub(".", m.keyStrokeCharacter)
   else
-    log.ef("No content in pasteboard:%s", hs.pasteboard.getContents())
+    log.ef("No content in pasteboard:%s", hs.pasteboard.getContents(m.pasteboard))
   end
 end
 
@@ -147,7 +148,7 @@ function m.strokingFunctions(pwd_mapping)
     if m.modal then
       m.modal:exit()
     end
-    log.vf("Stroke password for %s", pwd_mapping.desc)
+    log.df("Stroke password for %s", pwd_mapping.desc)
     m.getPasswordAndKeystroke(pwd_mapping)
   end
 
@@ -155,7 +156,7 @@ function m.strokingFunctions(pwd_mapping)
     if m.modal then
       m.modal:exit()
     end
-    log.vf("Stroke from pasteboard for %s", pwd_mapping.desc)
+    log.df("Stroke from pasteboard for %s", pwd_mapping.desc)
     m.keystrokeFromPasteboardContents()
   end
 
@@ -223,6 +224,14 @@ function m.init(modifiers)
   if config.loglevel then
     log.setLogLevel(config.loglevel)
   end
+
+  if config.use_system then
+     m.pasteboard = nil -- use system pasteboard (not recommended as it exposes passwords)
+  else
+     -- Note the small resource leakage in that this unique pasteboard is never deleted
+     m.pasteboard = hs.pasteboard.uniquePasteboard()
+  end
+  log.f("Using pasteboard %s", m.pasteboard)
 
   local modal_keys = config['modal'] or nil
   local keyBinder

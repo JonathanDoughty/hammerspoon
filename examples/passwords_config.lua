@@ -10,6 +10,8 @@ local password_config = {
   timeout = 15,            -- seconds before extracted password is wiped from pasteboard
                            -- set = 0 to not temporarily cache passwords.
                            -- This also disables key stroking into secure input fields.
+  use_system = false,      -- Whether to use a unique or system pasteboard.
+                           -- Set true will potentially expose passwords to other apps; don't.
   loglevel = 'info',       -- detail level in hammerspoon console
                            -- Warning: 'verbose' will result in some password details in console
   passwords = { -- paste/keystoke Keychain password when bindTo charecter is pressed
