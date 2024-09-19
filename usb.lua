@@ -304,9 +304,11 @@ local function configureSpoons(modifiers)
     })
 
     -- http://www.hammerspoon.org/Spoons/EjectMenu.html
-    m.config.eject_menu.hotkeys.ejectAll = { modifiers, m.config.keys.ejectall }
-    log.vf("config.eject_menu:%s", hs.inspect.inspect(m.config.eject_menu, options))
-    Install:andUse("EjectMenu", m.config.eject_menu)
+    if m.config.eject_menu.enabled then
+      m.config.eject_menu.hotkeys.ejectAll = { modifiers, m.config.keys.ejectall }
+      log.vf("config.eject_menu:%s", hs.inspect.inspect(m.config.eject_menu, options))
+      Install:andUse("EjectMenu", m.config.eject_menu)
+    end
   else
     log.ef("You'll need to install %s for %s to work\n",
            "https://www.hammerspoon.org/Spoons/SpoonInstall.html", script_path())

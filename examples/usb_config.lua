@@ -15,6 +15,7 @@ local usb_config = {
     ejectall = "a",             -- EjectMenu
   },
   eject_menu = {
+    enabled = false,
     config = { -- EjectMenu Spoon http://www.hammerspoon.org/Spoons/EjectMenu.html definitions
       -- see https://zzamboni.org/post/my-hammerspoon-configuration-with-commentary/#unmounting-external-disks-on-sleep
       show_in_menubar = true,
