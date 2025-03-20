@@ -76,7 +76,8 @@ local function actOnAppActivation(appName, appObject)
         else
           -- Avoid unneccesary Finder activations
           -- Is this the right thing for all special cases?
-          log.df("Previous event was termination of %s, ignoring special case activation of %s", m.lastApp, appName)
+          log.df("Previous event was termination of %s, ignoring special case activation of %s",
+                 m.lastApp, appName)
         end
       end
     end
@@ -84,7 +85,8 @@ local function actOnAppActivation(appName, appObject)
   end
 
   local function terminateWindowless(candidates)
-    log.vf("checking for any apps in termination candidates %s", hs.inspect(m.config.termination_candidates))
+    log.vf("checking for any apps in termination candidates %s",
+           hs.inspect(m.config.termination_candidates))
     local apps = hs.application.runningApplications()
 
     hs.fnutils.each(apps,
@@ -104,20 +106,21 @@ local function actOnAppActivation(appName, appObject)
   log.vf("%s has %d windows", appName, #windows)
   if #windows > 0 and hs.fnutils.every(windows, collectAllMinimizedWindowStats) then
     -- ... when every app window is minimized, then unminimize ALL minimized windows
-    log.f("Unminimizing %d minimized, %d visible, %d standard windows?", visible, minimized, standard)
+    log.f("Unminimizing %d minimized, %d visible, %d standard windows?", 
+          visible, minimized, standard)
     -- if this was reduce rather than each we might unminimize just the first minimized window
     hs.fnutils.each(windows, unMinimize)
   elseif m.lastObserved ~= m.currentApp then
     log.f("Not acting on activated never current %s", m.lastObserved:name())
   elseif hs.fnutils.some(m.config.special_cases, executeSpecialCaseAction) then
     log.vf("Special case for %s with %d windows, %d visible, %d minimized, %d standard",
-          appObject:name(), #windows, visible, minimized, standard)
+           appObject:name(), #windows, visible, minimized, standard)
   elseif #windows == 0 then
     hs.application.launchOrFocus(appName)
     log.f("Launched/focused %s", appName)
   elseif visible > 0 then
     -- at least one is visible? Normal switching behavior is what I like
-    log.vf("No action taken for %s with %d windows, %d visible, %d minimized, %d standard",
+    log.df("No action taken for %s with %d windows, %d visible, %d minimized, %d standard",
           appObject:name(), #windows, visible, minimized, standard)
   else
     log.f("Unexpected state for %s with %d windows, %d visible, %d minimized, %d standard",
@@ -142,18 +145,18 @@ function m.applicationWatcher(appName, eventType, appObject)
       -- Keep track of 'current' app - modulo those that are never 'current' - to have an event
       m.currentApp = appObject
     else
-      log.vf("%s never current, ignoring %s", appName, m.events[eventType])
+      log.df("%s never current, ignoring %s", appName, m.events[eventType])
       return
     end
 
     if eventType == watcher.activated then
-      log.vf("acting on activation of %s", appName)
+      log.df("acting on activation of %s", appName)
       actOnAppActivation(appName, appObject)
     else
       m.lastEvent = m.events[eventType]
       m.lastApp = appName
       m.appState[appName] = m.events[eventType]
-      log.vf("%s %s", appName, m.events[eventType])
+      log.df("%s %s", appName, m.events[eventType])
     end
   elseif not appObject then
     -- appName and appObject can (rarely) be nil when the application has been quit
@@ -163,8 +166,13 @@ end
 
 local function windowSubscriber(window, appName, event)
   -- Records the last event associated with an app, e.g, hidden, windowNotVisible when hidden
-  -- or minimized. Not currently used otherwise.
-   log.df("subscriber: %s window %s event %s", appName, window:title(), event)
+   -- or minimized. Not currently used otherwise; though the plan was to attempt to intercept
+   -- some actions, e.g., the need for admin privileges.
+   local logFunc = log.vf           -- be default suppress all logging except at verbose level
+   if event == "windowCreated" then -- log the window creation events at normal loglevel
+      logFunc = log.f
+   end
+   logFunc("app: %s, window: %s, event: %s", appName, window:title(), event)
    m.appState[appName] = event
 end
 
@@ -183,45 +191,7 @@ local function nextScreen(screen)
   end
 end
 
-local function moveAppWindow()
-  -- Move the currently focused window's app's windows (those that are on the same screen) to the next screen
-  local focusedWindow = hs.window.focusedWindow()
-  local focusedApp = focusedWindow:application()
-  if focusedApp then
-    local screens = hs.screen.allScreens()
-    if #screens > 1 then
-      local windows = focusedApp:allWindows()
-      local initialScreen = focusedWindow:screen()
-      local destinationScreen = nextScreen(initialScreen)
-      local moved = 0
-      for _, w in ipairs(windows) do
-        -- Move visible windows - including popups, modals, floating - from same screen as
-        -- focused window. (Only standard windows misses those apps that annoyingly start as popups.)
-        log.vf("Window %s (visible %s) on screen %s", w:title(), w:isVisible(), w:screen())
-        if w:screen() == initialScreen and w:isVisible() then
-          log.df("Moving window %s with role %s on screen %s to %s", w:title(), w:role(), w:screen(), destinationScreen)
-          w:moveToScreen(destinationScreen, true, true)
-          moved = moved + 1
-        end
-      end
-      log.f("Moved %d of %d %s windows to %s", moved, #windows, focusedApp:name(), destinationScreen)
-    else
-      log.i("No destinationScreen to move to, centering")
-      focusedWindow:centerOnScreen(nil, true)
-    end
-  else
-    log.i("No focused app")
-  end
-end
-
-function m.init(modifiers)
-  m.config = load_config()
-  if ( log.getLogLevel() ~= toLogLevel(m.config.loglevel) ) then
-    log.setLogLevel(m.config.loglevel)
-  end
-  m.appWatcher = hs.application.watcher.new(m.applicationWatcher)
-  m.appWatcher:start()
-
+local function setupWindowFilter()
   local wf = hs.window.filter
   local subscribedEvents = {
     wf.windowCreated,
@@ -238,6 +208,52 @@ function m.init(modifiers)
     -- That turned out not to be the case, so I made enabling subscribed events a config option.
     m.windowFilter:subscribe(subscribedEvents, windowSubscriber)
   end
+end
+
+local function moveAppWindow()
+  -- Move the currently focused window's app's windows (those that are on the same screen) to
+  -- the next screen. Move visible windows - including popups, modals, floating - from same
+  -- screen as focused window. (Only standard windows misses those apps that annoyingly start
+  -- as popups.) Submitted (without logging) as https://stackoverflow.com/a/79300206/1124740
+  local focusedWindow = hs.window.focusedWindow()
+  local focusedApp = focusedWindow:application()
+  if focusedApp then
+    local screens = hs.screen.allScreens()
+    if #screens > 1 then
+      local windows = focusedApp:allWindows()
+      local initialScreen = focusedWindow:screen()
+      local destinationScreen = nextScreen(initialScreen)
+      local moved = 0
+      for _, w in ipairs(windows) do
+        log.vf("Window %s (visible %s) on screen %s", w:title(), w:isVisible(), w:screen())
+        if w:screen() == initialScreen and w:isVisible() then
+          log.df("Moving window %s with role %s on screen %s to %s",
+                 w:title(), w:role(), w:screen(), destinationScreen)
+          w:moveToScreen(destinationScreen, true, true)
+          moved = moved + 1
+        end
+      end
+      log.f("Moved %d of %d %s windows to %s", moved, #windows, focusedApp:name(),
+            destinationScreen)
+    else
+      log.i("No destinationScreen to move to, centering")
+      focusedWindow:centerOnScreen(nil, true)
+    end
+  end
+end
+
+function m.init(modifiers)
+  m.config = load_config()
+  if ( log.getLogLevel() ~= toLogLevel(m.config.loglevel) ) then
+    log.setLogLevel(m.config.loglevel)
+  end
+  m.appWatcher = hs.application.watcher.new(m.applicationWatcher)
+  m.appWatcher:start()
+
+  if m.config["subscribe"] then
+     setupWindowFilter()
+  end
+
   -- hotkey based screen mover
   hs.hotkey.bind(modifiers, m.config["move"], describe("Move app"), moveAppWindow)
 

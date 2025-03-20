@@ -5,14 +5,17 @@ local switcher_config = {
   loglevel = "info",
   move = "m",        -- key to bind with hyper to application screen moves
   never_current = {  -- never make these 'current'
-    "Hammerspoon",   -- else debugging is nextto impossible
+    "Hammerspoon",   -- else debugging this is next to impossible
+    "loginwindow",   -- Becomes 'active' on sleep request and thus cancels sleep
     "SecurityAgent", -- UI for Security Service, requests authentication for privileges
     "ScreenSaverEngine", -- occurs on idle/sleep
     "Screen Saver",
     "System Information", -- making it current will auto-enable the More Info window
     "UserNotificationCenter",
-    "ZoomAutoUpdater",    -- Zoom
-    "bzmenu" -- Backblaze
+    -- Apps that you may use with helpers to ignore
+    -- "Little Snitch Agent",
+    -- "bzmenu" -- Backblaze
+    -- "ZoomAutoUpdater",    -- Zoom
     -- augmented below with Hammerspoon's own list
   },
   termination_candidates = {  -- Apps that hang around pointlessly after all windows are closed
