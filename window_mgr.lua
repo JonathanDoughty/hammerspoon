@@ -4,12 +4,19 @@
 local window_mgr = {}
 
 local log = hs.logger.new("window_mgr", "info")
+-- Replacement candidates I've come across:
+local alternatives = {
+  {url = "https://www.hammerspoon.org/Spoons/WindowHalfsAndThirds.html",
+   desc = "uses a large keymap"},
+  {url = "https://github.com/peterklijn/hammerspoon-shiftit",
+   desc = "large keymap with incremental control"},
+  {url = "https://github.com/MrKai77/Loop",
+   desc = "native app, compares itself to Hammerspoon"}
+}
 
 function window_mgr.init(modifiers, keys)
-  -- See https://github.com/miromannino/miro-windows-manager
-  -- Alternatives:
-  -- https://www.hammerspoon.org/Spoons/WindowHalfsAndThirds.html -- uses a large keymap
-  -- https://github.com/peterklijn/hammerspoon-shiftit - large keymap with incremental control
+
+  local spoonURL = "https://github.com/miromannino/miro-windows-manager"
 
   if hs.loadSpoon("MiroWindowsManager") then
     window_mgr.spoon = spoon
@@ -18,8 +25,7 @@ function window_mgr.init(modifiers, keys)
     -- Note that full-height (hyper + up + down arrow) and
     -- full-width (hyper + left + right arrow) do not toggle
 
-    spoon.MiroWindowsManager:bindHotkeys(
-      {
+    spoon.MiroWindowsManager:bindHotkeys( {
         up = {modifiers, keys["up"]},
         right = {modifiers, keys["right"]},
         down = {modifiers, keys["down"]},
@@ -29,8 +35,11 @@ function window_mgr.init(modifiers, keys)
     )
     hs.hotkey.bind(modifiers, "0", hs.grid.show)
   else
-    log.ef("You'll need to install %s for %s to work\n",
-           "https://github.com/miromannino/miro-windows-manager", script_path())
+    log.ef("\n\nYou'll need to install %s for %s to work\nOr consider using:\n",
+           spoonURL, script_path())
+    for _,v in ipairs(alternatives) do
+      log.f("%s - %s\n", v.url, v.desc)
+    end
   end
 end
 
