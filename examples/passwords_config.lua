@@ -12,6 +12,7 @@ local password_config = {
                            -- This also disables key stroking into secure input fields.
   use_system = false,      -- Whether to use a unique or system pasteboard.
                            -- Set true will potentially expose passwords to other apps; don't.
+  notifySound = "Hero",    -- which of hs.sound.systemSounds to play to get attention
   loglevel = 'info',       -- detail level in hammerspoon console
                            -- Warning: 'verbose' will result in some password details in console
   passwords = { -- paste/keystoke Keychain password when bindTo charecter is pressed

@@ -103,8 +103,8 @@ function m.keyStrokeCharacters(chars)
 end
 
 function m.keystrokeFromPasteboardContents()
-  log.vf("Keystroke pasteboard contents from %s", hs.inspect(m.lastPassword))
   if m.lastPassword then
+    log.vf("Keystroke pasteboard contents from %s", hs.inspect(m.lastPassword))
     local passPhrase = m.extractPassword(m.lastPassword.pwType, m.lastPassword.service)
     if passPhrase then
       hs.pasteboard.setContents(passPhrase, m.pasteboard)
@@ -152,18 +152,26 @@ function m.strokingFunctions(pwd_mapping)
     m.getPasswordAndKeystroke(pwd_mapping)
   end
 
-  local function strokeFromPasteboard()
+  local function strokeFromSystemPasteboard()
     if m.modal then
       m.modal:exit()
     end
-    log.df("Stroke from pasteboard for %s", pwd_mapping.desc)
-    m.keystrokeFromPasteboardContents()
+    -- Access current system clipboard
+    local systemPasteboardContent = hs.pasteboard.getContents()
+    if systemPasteboardContent then
+       log.df("Stroke from pasteboard for %s", systemPasteboardContent)
+       hs.pasteboard.setContents( systemPasteboardContent, m.pasteboard)
+       m.keystrokeFromPasteboardContents()
+    else
+       hs.sound.getByName(m.motifySound):play()
+       notify("System clipboard has no content")
+    end
   end
 
   local stroke_funcs = {
     ["internet"] = strokePassword,
     ["generic"] = strokePassword,
-    ["clipboard"] = strokeFromPasteboard,
+    ["clipboard"] = strokeFromSystemPasteboard,
   }
   return stroke_funcs
 end
@@ -199,8 +207,7 @@ function m.modalKeyBinder(modifiers, modal_keys)
 end
 
 function m.modifierKeyBinder(modifiers)
-
-  -- Return a function that will be called for each key to be direct mapped
+  -- Return a function that will be called for each direct mapped key
   local binder = function (pwd_mapping)
     log.f("Binding password key %s%s of type %s for %s",
            table.concat(modifiers), string.upper(pwd_mapping.bindTo),
@@ -218,21 +225,23 @@ function m.modifierKeyBinder(modifiers)
   return binder
 end
 
-function m.init(modifiers)
-  local config = load_config()
-  m.config = config
-  if config.loglevel then
-    log.setLogLevel(config.loglevel)
-  end
+local function cleanupOnExit()
+   -- Release system resources associated with this pasteboard
+   if m.pasteboard then
+      hs.pasteboard.deletePasteboard(m.pasteboard)
+      m.log.f("Pasteboard %s resources released", m.pasteboard)
+      hs.shutdownCallbacks = m.shutdownCallbacks -- make no assumptions about others though
+      -- should be moot but...
+      m.shutdownCallbacks = nil
+      m.pasteboard = nil -- but don't do this again
+   end
+   if m.shutdownCallbacks then
+      m.log.i("Calling previously registered shutdown callback")
+      m.shutdownCallbacks()
+   end
+end
 
-  if config.use_system then
-     m.pasteboard = nil -- use system pasteboard (not recommended as it exposes passwords)
-  else
-     -- Note the small resource leakage in that this unique pasteboard is never deleted
-     m.pasteboard = hs.pasteboard.uniquePasteboard()
-  end
-  log.f("Using pasteboard %s", m.pasteboard)
-
+function m.setupBindings(config, modifiers)
   local modal_keys = config['modal'] or nil
   local keyBinder
   -- Select function to bind either modal/key or modifier/key mapping
@@ -247,6 +256,26 @@ function m.init(modifiers)
     hs.fnutils.each(config['passwords'], keyBinder)
   end
 
+end
+
+function m.init(modifiers)
+  local config = load_config()
+  m.config = config
+  if config.loglevel then
+    log.setLogLevel(config.loglevel)
+  end
+
+  if config.use_system then
+     m.pasteboard = nil -- use system pasteboard (not recommended as it exposes passwords)
+  else
+     -- Create pasteboard for this module's use and arrange for its deletion
+     m.pasteboard = hs.pasteboard.uniquePasteboard()
+     m.shutdownCallbacks = hs.shutdownCallbacks
+     hs.shutdownCallbacks = cleanupOnExit
+  end
+  log.f("Using pasteboard %s", m.pasteboard)
+
+  m.setupBindings(config, modifiers)
 end
 
 return m
