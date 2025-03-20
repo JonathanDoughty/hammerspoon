@@ -57,7 +57,7 @@ local function work_config(mod, modifiers)
     if not ( this_host == cfg.hostname or this_host == cfg.work.hostname ) then
       notify("Hostname " .. this_host .. " not recognized for work config", 0)
     elseif this_host == cfg.work.hostname then
-      mod.log.i("\n%s\nInitializing work functions", string.rep('_', 50))
+      mod.log.f("\n%s\nInitializing work functions", string.rep('_', 50))
       mod.work = cfg.work.init(modifiers, cfg.work.defs)
       mod.log.vf("work init returned %s", hs.inspect(mod.work))
     else
@@ -86,14 +86,33 @@ local function hammerspoon_tweaks(mod)
 
   if mod.log.level < 4 then
     hs.console.clearConsole()
-  else
-    -- debug or greater leave console as is, except add convenience aliase
-    cls = hs.console.setConsole
   end
+
+  -- console convenience functions
+  ins = hs.inspect
+  cls = hs.console.setConsole
+
 end
 
 local function init()
   -- Driver for the remainder of configuration
+  local function intro()
+    local lines = {
+      "Jonathan's Hammerspoon configuration complete.\n",
+      "Top level configuration items not yet migrated to modules are viewable as ins(cfg)",
+      "Module configuration viewable as ins(mod)\n",
+      "Convenience functions:\n",
+      "\t* ins() - a convenience function alias for hs.inspect\n",
+      "\t* cls() - a convenience function alias for clearing the console\n",
+    }
+    local sep = "\n\t"
+    local msg = sep
+    for _, line in ipairs(lines) do
+       msg = string.format("%s%s%s", msg, sep, line)
+    end
+    hs.console.printStyledtext(msg)
+  end
+
   log.i("Started")
   mod = {}
   mod.log = log
@@ -102,8 +121,6 @@ local function init()
 
   load_module("utils")
 
-  ins = hs.inspect -- console convenience function
-
   local modifiers = cfg.hyper or "alt"
 
   local_modules(mod, modifiers)
@@ -111,6 +128,8 @@ local function init()
   work_config(mod, modifiers)
   hammerspoon_tweaks(mod)
   watch_config(mod)
+  mod.timer = hs.timer.doAfter(2, intro)
+
 end
 
 init()

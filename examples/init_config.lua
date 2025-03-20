@@ -13,7 +13,7 @@ hyper = {"⌥", "⌘"} -- {"option/alt", "cmd"}
 -- hyper = {"right_command" } -- https://mattorb.com/level-up-shortcuts-hammerspoon-home-row/ -- Did not work out
 m.hyper = hyper
 
-m.hostname = "localhost" -- see init.lua
+m.hostname = "localhost" -- pertains to special configuration for work laptop, see init.lua
 
 -- Configuration for scripts corresponding to top level keys
 -- There are some inconsistencies here still, e.g., some key bindings are here while
