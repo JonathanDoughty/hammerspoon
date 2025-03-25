@@ -106,7 +106,7 @@ local function actOnAppActivation(appName, appObject)
   log.vf("%s has %d windows", appName, #windows)
   if #windows > 0 and hs.fnutils.every(windows, collectAllMinimizedWindowStats) then
     -- ... when every app window is minimized, then unminimize ALL minimized windows
-    log.f("Unminimizing %d minimized, %d visible, %d standard windows?", 
+    log.f("Unminimizing %d minimized, %d visible, %d standard windows?",
           visible, minimized, standard)
     -- if this was reduce rather than each we might unminimize just the first minimized window
     hs.fnutils.each(windows, unMinimize)
@@ -168,11 +168,11 @@ local function windowSubscriber(window, appName, event)
   -- Records the last event associated with an app, e.g, hidden, windowNotVisible when hidden
    -- or minimized. Not currently used otherwise; though the plan was to attempt to intercept
    -- some actions, e.g., the need for admin privileges.
-   local logFunc = log.vf           -- be default suppress all logging except at verbose level
-   if event == "windowCreated" then -- log the window creation events at normal loglevel
-      logFunc = log.f
+   local logFunc = log.vf           -- by default suppress all logging except at verbose level
+   if event == "windowCreated" then -- log window creation events at debug loglevel
+      logFunc = log.df
    end
-   logFunc("app: %s, window: %s, event: %s", appName, window:title(), event)
+   logFunc("subscriber: %s, window: %s, event: %s", appName, window:title(), event)
    m.appState[appName] = event
 end
 
@@ -210,11 +210,12 @@ local function setupWindowFilter()
   end
 end
 
-local function moveAppWindow()
+local function moveAppWindows(focusedOnly)
   -- Move the currently focused window's app's windows (those that are on the same screen) to
   -- the next screen. Move visible windows - including popups, modals, floating - from same
   -- screen as focused window. (Only standard windows misses those apps that annoyingly start
-  -- as popups.) Submitted (without logging) as https://stackoverflow.com/a/79300206/1124740
+  -- as popups.) If focusedOnly is true then, duh, move only currently focused app window.
+  -- Early version submitted as https://stackoverflow.com/a/79300206/1124740
   local focusedWindow = hs.window.focusedWindow()
   local focusedApp = focusedWindow:application()
   if focusedApp then
@@ -227,10 +228,14 @@ local function moveAppWindow()
       for _, w in ipairs(windows) do
         log.vf("Window %s (visible %s) on screen %s", w:title(), w:isVisible(), w:screen())
         if w:screen() == initialScreen and w:isVisible() then
+          if focusedOnly and w ~= focusedWindow then
+            goto next_window_check  -- Lua has no continue https://www.luafaq.org/#T1.26
+          end
           log.df("Moving window %s with role %s on screen %s to %s",
                  w:title(), w:role(), w:screen(), destinationScreen)
           w:moveToScreen(destinationScreen, true, true)
           moved = moved + 1
+          ::next_window_check::
         end
       end
       log.f("Moved %d of %d %s windows to %s", moved, #windows, focusedApp:name(),
@@ -254,8 +259,13 @@ function m.init(modifiers)
      setupWindowFilter()
   end
 
-  -- hotkey based screen mover
-  hs.hotkey.bind(modifiers, m.config["move"], describe("Move app"), moveAppWindow)
+  -- hotkey based screen movers
+  hs.hotkey.bind(modifiers, m.config.bindings["move_all"],
+                 describe("Move app"),
+                 function () moveAppWindows(false) end)
+  hs.hotkey.bind(modifiers, m.config.bindings["move_focused"],
+                 describe("Move focused app window only"),
+                 function() moveAppWindows(true) end)
 
 end
 

@@ -3,7 +3,10 @@
 
 local switcher_config = {
   loglevel = "info",
-  move = "m",        -- key to bind with hyper to application screen moves
+  bindings = {
+       move_all = "m",              -- move all application windows
+       move_focused = ",",          -- move just currently focused window
+  },
   never_current = {  -- never make these 'current'
     "Hammerspoon",   -- else debugging this is next to impossible
     "loginwindow",   -- Becomes 'active' on sleep request and thus cancels sleep
