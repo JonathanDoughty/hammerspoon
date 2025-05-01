@@ -1,5 +1,5 @@
 -- Unminimize/Open applications when they are activated via the macOS Application Switcher
--- A standard macos application switcher (Cmd-Tab) behavior I have always hated:
+-- A standard macOS application switcher (Cmd-Tab) behavior I have always hated:
 -- * Why if I select the app with Commmand-Tab would I NOT want the application to unminimize?
 -- * What's the point of apps like Archive Utility that stay active when their job is done?
 -- luacheck: globals hs load_config notify describe toLogLevel
@@ -8,7 +8,7 @@ local m = {}
 
 -- WIP: Spoon (someday) metadata
 m.name = "Switcher"
-m.version = "0.5"
+m.version = "0.6"
 m.author = "Jonathan Doughty <jwd630@gmail.com>"
 m.homepage = "https://github.com/JonathanDoughty/hammerspoon"
 m.license = "MIT - https://opensource.org/licenses/MIT"
@@ -172,7 +172,11 @@ local function windowSubscriber(window, appName, event)
    if event == "windowCreated" then -- log window creation events at debug loglevel
       logFunc = log.df
    end
-   logFunc("subscriber: %s, window: %s, event: %s", appName, window:title(), event)
+   local title = '(nil window)' -- avoid de-referencing nil
+   if window then
+     title = window:title()
+   end
+   logFunc("subscriber: %s, window: %s, event: %s", appName, title, event)
    m.appState[appName] = event
 end
 
