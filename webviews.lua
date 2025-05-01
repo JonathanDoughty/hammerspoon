@@ -1,4 +1,4 @@
--- WebViews - set up for some standard web page views
+-- WebViews - set up bindings to display some web page viewers
 -- luacheck: globals hs load_config describe
 
 require("utils")
@@ -9,12 +9,12 @@ m.log = log
 
 local screen_fraction = .85
 
-local wv_browsers = {}
+m.refs = {}
 
 local function browserCallback(action, webview, frame_state)
    if action == "closing" then
      log.df("action %s, webview %s,\n  frame_state: %s", action, webview, hs.inspect(frame_state))
-      hs.fnutils.each(wv_browsers,
+      hs.fnutils.each(m.refs,
                       function(entry)
                          log.df("entry %s", entry)
                          if entry == webview then
@@ -30,6 +30,7 @@ local function browserCallback(action, webview, frame_state)
 end
 
 local function wvBrowser(def)
+   -- Create a hs.webview browser that is screen_fraction of the main screen's height and width
    local screenFrame = hs.screen.mainScreen():frame()
    local w = screenFrame.w * screen_fraction
    local h = screenFrame.h * screen_fraction
@@ -48,23 +49,102 @@ local function wvBrowser(def)
    return wv
 end
 
-function m.toggle_webview (item)
-  local key = item.key
-  local browser = wv_browsers[key]
-  if browser == nil then
-    log.df("Creating browser for %s at %s on key", item.desc, item.url, key)
-    wv_browsers[key] = wvBrowser(item)
-    log.df("Opened %s", wv_browsers[key])
+local function toggle_view(item)
+  local ref = m.refs[item.key]
+  if ref == nil then
+    log.df("Creating view for %s at %s on key", item.desc, item.url, item.key)
+    ref = wvBrowser(item)
+    log.df("Opened view %s", item.key)
   else
     -- TODO check state and toggle off/on instead of removing key
     -- (though you need to deal with deleteOnClose too)
-    log.df("Deleting %s", browser)
-    wv_browsers[key] = nil
+    log.df("Deleting %s", ref)
+    ref = nil
   end
+  m.refs[item.key] = ref
 end
 
--- Keep a table of browser objects, indexed by key, and toggle them on/off
--- TODO add default dimensions; replace state with preferred dimensions; pass def into wvBrowser instead of just url
+local function toggle_doc(item)
+  -- Start/stop the Hammerspoon internal documentation web server
+  local ref = m.refs[item.key]
+  if not ref then
+    log.df("Starting %s at %s on key %s", item.desc, item.url, item.key)
+    ref = require("hs.doc.hsdocs").start()
+    local cmd = string.format("open location \"%s\"", item.url)
+    local result = hs.osascript.applescript(cmd)
+    if not result then
+      log.ef("%s resulted in %s", cmd, result)
+    end
+  else
+    hs.doc.hsdocs.stop()
+    ref = nil
+  end
+  m.refs[item.key] = ref
+end
+
+function m.toggle (obj)
+  -- Invoke functions that will maintain a table of viewers, indexed by key, toggling them on/off
+
+  local type_funcs = {
+    view = toggle_view,
+    doc  = toggle_doc,
+  }
+
+  type_funcs[obj.type](obj)
+end
+
+function m.setupBindings (config, modifiers)
+
+  local function binder(modal_key)
+    local mode_name = "Webview mode"
+    if modal_key then
+      local modal = hs.hotkey.modal.new(modifiers, modal_key, mode_name)
+      modal:bind('', 'escape', function() modal:exit() end)
+      if log.level >= 4 then -- debug or verbose
+        -- luacheck: push no unused args
+        function modal:entered()
+          log.df('Entered modal %s', mode_name)
+        end
+        function modal:exited()
+          log.df('Exited modal %s', mode_name)
+        end
+        -- luacheck: pop
+      end
+
+      return function (item)
+        log.df("Binding %s modal key %s %s for %s", mode_name, table.concat(modifiers), item.key, item.desc)
+        modal:bind(modifiers, item.key, mode_name,
+                   function()
+                     log.df("Toggling %s for %s on %s", mode_name, item.desc, item.key)
+                     modal:exit()
+                     m.toggle(item)
+                   end
+        )
+      end
+    else -- not using modal keys
+      return function (item)
+        log.df("Binding key %s %s for %s", table.concat(modifiers), item.key, item.desc)
+        hs.hotkey.bind(modifiers, item.key, describe("Toggle for " .. item.desc), m.toggle(item))
+      end
+
+    end
+  end
+
+  local bind_func = binder( config['modal'] or nil, modifiers )
+  hs.fnutils.each(config.views, bind_func)
+end
+
+function m.receiveFromSystem(text)
+   -- Handle text sent via Services... Send to Hammerspoon or drag and drop
+   m.log.f("Received text %s - further processing yet to be implemented", text)
+   -- TBD - this wasn't as useful as I'd hoped; which was to get URLs from links
+end
+
+function m.receiveFile(filePath)
+   -- Handle files sent via Services... Send to Hammerspoon or drag and drop
+   m.log.f("Received path %s - further processing yet to be implemented", filePath)
+   -- TBD - Here as a placeholder
+end
 
 function m.init(modifiers)
 
@@ -73,46 +153,11 @@ function m.init(modifiers)
     m.log.setLogLevel(config.logLevel)
   end
 
-  local modal_key = config['modal'] or nil
-  local bind_func
+  m.setupBindings(config, modifiers)
 
-  if modal_key then
-    local mode_name = "Webview mode"
-    local modal = hs.hotkey.modal.new(modifiers, modal_key, mode_name)
-    modal:bind('', 'escape', function() modal:exit() end)
-    if log.level >= 4 then -- debug or verbose
-      -- luacheck: push no unused args
-      function modal:entered()
-        log.df('Entered %s', mode_name)
-      end
-      function modal:exited()
-        log.df('Exited %s', mode_name)
-      end
-      -- luacheck: pop
-    end
-
-    bind_func = function (item)
-      log.df("Binding %s key %s for %s", mode_name, item.key, item.desc)
-      modal:bind(modifiers, item.key,
-                 function()
-                   log.df("Toggling %s for %s on ", mode_name, item.desc, item.key)
-                   modal:exit()
-                   m.toggle_webview(item)
-                 end
-      )
-    end
-
-  else -- not modal_key
-
-    bind_func = function (item)
-      hs.hotkey.bind(modifiers, item.key, describe("Toggle web view for " .. item.desc), m.toggle_webview(item))
-    end
-
-  end
-  hs.fnutils.each(config.views, bind_func)
-
+  -- Register drag & drop / Services... Send to Hammerspoon callbacks
+  hs.textDroppedToDockIconCallback = m.receiveFromSystem
+  hs.fileDroppedToDockIconCallback = m.receiveFile
 end
-
-m["browsers"] = wv_browsers
 
 return m
